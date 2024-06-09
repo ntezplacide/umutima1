@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+
 class MemberForm extends StatefulWidget {
   final String registrationId;
   final String name;
@@ -24,7 +25,7 @@ class MemberForm extends StatefulWidget {
     required this.description,
     required this.provinceLocation,
     required this.districtLocation,
-    required this.sectorLocation,
+    required this.sectorLocation, required String cooperativeName,
   }) : super(key: key);
 
   @override

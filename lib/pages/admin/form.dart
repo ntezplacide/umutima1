@@ -14,11 +14,13 @@ class UpdatePage extends StatelessWidget {
   final String sectorLocation;
   final String cellLocation;
   final String villageLocation;
+  final String cooperativeName;
 
   const UpdatePage(
       {Key? key,
         required this.registrationId,
         required this.name,
+        required this.cooperativeName,
         required this.cellLocation,
         required this.description,
         required this.provinceLocation,
@@ -113,7 +115,7 @@ class UpdatePage extends StatelessWidget {
                 description: description,
                 sectorLocation: sectorLocation,
                 districtLocation: districtLocation,
-                provinceLocation: provinceLocation,
+                provinceLocation: provinceLocation, cooperativeName:cooperativeName,
               ), // Display the member form
               SizedBox(height: 20),
               ElevatedButton(

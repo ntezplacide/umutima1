@@ -18,7 +18,7 @@ class Cooperative {
     required this.registrationId,
     required this.name,
     required this.description,
-    //required this.provinceLocation,
+    
     required this.districtLocation,
     required this.sectorLocation,
     required this.cellLocation,

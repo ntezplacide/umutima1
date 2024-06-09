@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:umutima/controllers/memberslistscreen.dart';
 import 'package:umutima/models/cooperative.dart';
-import 'package:umutima/pages/admin/form.dart';
+import 'package:umutima/pages/admin/cooperativemembers.dart';
+import 'package:umutima/src/pages/updateforms/addingmembers.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:convert';
 
 class SeniorDashboard extends StatefulWidget {
   @override
@@ -19,15 +22,29 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
   bool _showNewsButtons = false;
   bool _showNewCooperativeForm = false;
   bool _isExistingUsersVisible = false;
-
   bool _showMemberList = false;
   List<String> _cooperativeNames = [];
+  Map<String, dynamic> allData = {};
+  String? selectedProvince;
+  String? selectedDistrict;
+  String? selectedSector;
+  String? selectedCell;
+  String? selectedVillage;
+  String _errorMessage = '';
+  bool _showLoginForm = false;
+  String _loginFirstName = '';
+  String _loginLastName = '';
+ 
+
+
 
   @override
   void initState() {
     super.initState();
     _loadAdminFirstName();
+    _getAllData();
   }
+  
 
   Future<void> _loadAdminFirstName() async {
     try {
@@ -79,6 +96,83 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
     }
   }
 
+  Future<void> _getAllData() async {
+    final String url = 'assets/locations/locations.json';
+    try {
+      final response = await rootBundle.loadString(url);
+      setState(() {
+        allData = json.decode(response) as Map<String, dynamic>;
+      });
+    } catch (error) {
+      print(error);
+    }
+  }
+
+  List<String> _getProvinces() {
+    return allData.keys.toList();
+  }
+
+  List<String> _getDistricts(String province) {
+    try {
+      final data = allData[province] as Map<String, dynamic>;
+      return data.keys.toList();
+    } catch (error) {
+      print(error);
+      return [];
+    }
+  }
+
+  List<String> _getSectors(String province, String district) {
+    try {
+      final data = allData[province][district] as Map<String, dynamic>;
+      return data.keys.toList();
+    } catch (error) {
+      print(error);
+      return [];
+    }
+  }
+
+  List<String> _getCells(String province, String district, String sector) {
+    try {
+      final data = allData[province][district][sector] as Map<String, dynamic>;
+      return data.keys.toList();
+    } catch (error) {
+      print(error);
+      return [];
+    }
+  }
+
+  List<String> _getVillages(String province, String district, String sector, String cell) {
+    try {
+      final data = allData[province][district][sector][cell] as List<dynamic>;
+      return data.cast<String>();
+    } catch (error) {
+      print(error);
+      return [];
+    }
+  }
+
+  Future<bool> _isCooperativeNameExists(String name) async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection('Umutima-Ikimina')
+          .where('name', isEqualTo: name)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } catch (error) {
+      print('Error checking cooperative name: $error');
+      return false;
+    }
+  }void _handleUpdate(String name) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => MyData(name: name, id: '',, description: '', cellLocation: '', districtLocation: '', sectorLocation: '', village: '', registrationId: '', timestamp: null,),
+    ),
+  );
+}
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,6 +210,20 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
     );
   }
 
+  Widget _buildLoginForm() {
+  
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+     
+      SizedBox(height: 20),
+    
+      
+    ],
+  );
+}
+
+
   Widget _buildSmallScreen() {
     return Center(
       child: Column(
@@ -127,209 +235,196 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
     );
   }
 
-  Widget _buildLargeScreen() {
-    return Row(
-      children: <Widget>[
-        Container(
-          width: 200, // Adjust the width of the sidebar
-          decoration: BoxDecoration(
-            color: Color(0xFF228B22), // Sidebar background color
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2), // Shadow color
-                spreadRadius: 5,
-                blurRadius: 7,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 20),
-              // Sidebar content
-              _buildMenuItem(Icons.home, 'Home'),
-              _buildMenuItem(Icons.add, 'New', onTap: () {
-                setState(() {
-                  _showNewsButtons = !_showNewsButtons;
-                });
-              }),
-              _buildMenuItem(Icons.format_list_bulleted, 'All', onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => AllMembersPage()),
-                );
-              }),
-              _buildMenuItem(Icons.analytics_sharp, 'Transaction'),
-              _buildMenuItem(Icons.analytics, 'Analysis'),
-            ],
-          ),
+Widget _buildLargeScreen() {
+  return Row(
+    children: <Widget>[
+      Container(
+        width: 200,
+        decoration: BoxDecoration(
+          color: Color(0xFF228B22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              spreadRadius: 5,
+              blurRadius: 7,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
-        Expanded(
-          child: Container(
-            color: Color(0xFF6699CC), // Set the background color here
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: _isLoading
-                  ? CircularProgressIndicator()
-                  : SingleChildScrollView(
-                      // Wrap SingleChildScrollView here
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          if (_showNewsButtons) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  margin: EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        spreadRadius: 2,
-                                        blurRadius: 5,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        _showNewCooperativeForm = true;
-                                      });
-                                    },
-                                    icon: Icon(Icons.group_add),
-                                    label: Text('New Cooperative'),
-                                  ),
-                                ),
-                                Container(
-                                  margin: EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        spreadRadius: 2,
-                                        blurRadius: 5,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        _fetchCooperativeNames();
-                                      });
-                                    },
-                                    icon: Icon(Icons.people),
-                                    label: Text('Existing Copperative'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (_showNewCooperativeForm)
-                            _buildNewCooperativeForm(),
-                          if (_isExistingUsersVisible) ...[
-                            ElevatedButton(
-                              onPressed: () {
-                                _fetchCooperativeNames();
-                              },
-                              child: Text(
-                                'Fetch Cooperative Names',
-                                style: TextStyle(
-                                  color: Color.fromARGB(255, 1, 5, 14),
-                                ),
-                              ),
-                            ),
-                            Text(
-                              'Cooperative Names:',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: _cooperativeNames.map((name) {
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        margin:
-                                            EdgeInsets.symmetric(vertical: 5),
-                                        padding: EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[
-                                              200], // Set your desired background color here
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color:
-                                                  Colors.black.withOpacity(0.2),
-                                              spreadRadius: 2,
-                                              blurRadius: 5,
-                                              offset: Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Text(
-                                          name,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: 10,
-                                      height: 23,
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        _handleUpdate(name);
-                                      },
-                                      child: Text('Update'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 20),
+            _buildMenuItem(Icons.home, 'Home'),
+            _buildMenuItem(Icons.add, 'New', onTap: () {
+              setState(() {
+                _showNewsButtons = !_showNewsButtons;
+              });
+            }),
+            _buildMenuItem(Icons.format_list_bulleted, 'All', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AllMembersPage()),
+              );
+            }),
+            _buildMenuItem(Icons.analytics_sharp, 'Transaction'),
+            _buildMenuItem(Icons.analytics, 'Analysis'),
+          ],
+        ),
+      ),
+      Expanded(
+        child: Container(
+          color: Color(0xFF6699CC),
+          padding: EdgeInsets.all(24),
+          child: Center(
+            child: _isLoading
+                ? CircularProgressIndicator()
+                : SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        if (_showLoginForm) _buildLoginForm(),
+                        if (_showNewsButtons && !_showLoginForm) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                margin: EdgeInsets.symmetric(horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      spreadRadius: 2,
+                                      blurRadius: 5,
+                                      offset: Offset(0, 2),
                                     ),
                                   ],
-                                );
-                              }).toList(),
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      _showNewCooperativeForm = true;
+                                    });
+                                  },
+                                  icon: Icon(Icons.group_add),
+                                  label: Text('New Cooperative'),
+                                ),
+                              ),
+                              SizedBox(height: 20),
+                              Container(
+                                margin: EdgeInsets.symmetric(horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      spreadRadius: 2,
+                                      blurRadius: 5,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      _fetchCooperativeNames();
+                                    });
+                                  },
+                                  icon: Icon(Icons.people),
+                                  label: Text('Existing Cooperative'),
+                                ),
+                              ),
+                              SizedBox(height: 20),
+                            ],
+                          ),
+                        ],
+                        if (_showNewCooperativeForm && !_showLoginForm)
+                          _buildNewCooperativeForm(),
+                        if (_isExistingUsersVisible && !_showLoginForm) ...[
+                          SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: () {
+                              _fetchCooperativeNames();
+                            },
+                            child: Text(
+                              'Fetch Cooperative Names',
+                              style: TextStyle(
+                                color: Color.fromARGB(255, 14, 12, 1),
+                              ),
                             ),
-                          ],
-                          SizedBox(height: 24),
+                          ),
+                          SizedBox(height: 20),
                           Text(
-                            'Welcome !',
+                            'Cooperative Names:',
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          SizedBox(height: 20),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _cooperativeNames.map((name) {
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      margin: EdgeInsets.symmetric(vertical: 5),
+                                      padding: EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            spreadRadius: 2,
+                                            blurRadius: 5,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        name,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 10,
+                                    height: 23,
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      _handleUpdate(name);
+                                    },
+                                    child: Text('Update'),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-            ),
+                  ),
           ),
         ),
+      ),
+    ],
+  );
+}
 
-      ],
-    );
-  }
-
-  Widget _buildMenuItem(IconData icon, String title, {VoidCallback? onTap}) {
+   Widget _buildMenuItem(IconData icon, String title, {VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: Colors.white),
-      title: Text(
-        title,
-        style: TextStyle(color: Colors.white),
-      ),
+      title: Text(title, style: TextStyle(color: Colors.white)),
       onTap: onTap,
     );
   }
@@ -340,11 +435,6 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
     // Declare TextEditingController for each TextFormField
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
-    final provinceController = TextEditingController();
-    final districtController = TextEditingController();
-    final sectorController = TextEditingController();
-    final cellController = TextEditingController();
-    final villageController = TextEditingController();
     final timestamp = Timestamp.now();
 
     return SingleChildScrollView(
@@ -361,6 +451,13 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
             textAlign: TextAlign.center,
           ),
           SizedBox(height: 20),
+          if (_errorMessage.isNotEmpty)
+            Text(
+              _errorMessage,
+              style: TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          SizedBox(height: 10),
           TextFormField(
             controller: nameController,
             decoration: InputDecoration(labelText: 'Cooperative Name'),
@@ -376,9 +473,7 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
               border: OutlineInputBorder(),
             ),
           ),
-          SizedBox(
-            height: 20,
-          ),
+          SizedBox(height: 20),
           Text(
             'Location',
             style: TextStyle(
@@ -388,47 +483,130 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
             ),
           ),
           SizedBox(height: 5),
-          TextFormField(
-            controller: districtController,
+          DropdownButtonFormField<String>(
             decoration: InputDecoration(labelText: 'Province'),
+            items: _getProvinces().map<DropdownMenuItem<String>>((String key) {
+              return DropdownMenuItem<String>(
+                value: key,
+                child: Text(key),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedProvince = value!;
+                selectedDistrict = null;
+                selectedSector = null;
+                selectedCell = null;
+                selectedVillage = null;
+              });
+            },
+            value: selectedProvince,
           ),
-          SizedBox(height: 10),
-          TextFormField(
-            controller: districtController,
+          DropdownButtonFormField<String>(
             decoration: InputDecoration(labelText: 'District'),
+            items: selectedProvince == null
+                ? []
+                : _getDistricts(selectedProvince!)
+                    .map<DropdownMenuItem<String>>((String key) {
+                    return DropdownMenuItem<String>(
+                      value: key,
+                      child: Text(key),
+                    );
+                  }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedDistrict = value!;
+                selectedSector = null;
+                selectedCell = null;
+                selectedVillage = null;
+              });
+            },
+            value: selectedDistrict,
           ),
-          SizedBox(height: 10),
-          TextFormField(
-            controller: sectorController,
+          DropdownButtonFormField<String>(
             decoration: InputDecoration(labelText: 'Sector'),
+            items: selectedDistrict == null
+                ? []
+                : _getSectors(selectedProvince!, selectedDistrict!)
+                    .map<DropdownMenuItem<String>>((String key) {
+                    return DropdownMenuItem<String>(
+                      value: key,
+                      child: Text(key),
+                    );
+                  }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedSector = value!;
+                selectedCell = null;
+                selectedVillage = null;
+              });
+            },
+            value: selectedSector,
           ),
-          SizedBox(height: 10),
-          TextFormField(
-            controller: cellController,
+          DropdownButtonFormField<String>(
             decoration: InputDecoration(labelText: 'Cell'),
+            items: selectedSector == null
+                ? []
+                : _getCells(selectedProvince!, selectedDistrict!, selectedSector!)
+                    .map<DropdownMenuItem<String>>((String key) {
+                    return DropdownMenuItem<String>(
+                      value: key,
+                      child: Text(key),
+                    );
+                  }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedCell = value!;
+                selectedVillage = null;
+              });
+            },
+            value: selectedCell,
           ),
-          SizedBox(height: 10),
-          TextFormField(
-            controller: villageController,
+          DropdownButtonFormField<String>(
             decoration: InputDecoration(labelText: 'Village'),
+            items: selectedCell == null
+                ? []
+                : _getVillages(selectedProvince!, selectedDistrict!, selectedSector!, selectedCell!)
+                    .map<DropdownMenuItem<String>>((dynamic key) {
+                    return DropdownMenuItem<String>(
+                      value: key.toString(),
+                      child: Text(key.toString()),
+                    );
+                  }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedVillage = value!;
+              });
+            },
+            value: selectedVillage,
           ),
           SizedBox(height: 10),
           SizedBox(height: 20),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              final newCooperativeName = nameController.text;
+
+              // Check if the cooperative name already exists
+              bool nameExists = await _isCooperativeNameExists(newCooperativeName);
+              if (nameExists) {
+                setState(() {
+                  _errorMessage = 'Izina Ryarafashwe shaka irindi zina'; // The name is taken, choose another name
+                });
+                return;
+              }
+
               // Create a new cooperative object
               final newCooperative = Cooperative(
                 id: firebaseId,
                 registrationId: registrationId,
-                name: nameController.text,
+                name: newCooperativeName,
                 description: descriptionController.text,
-                provinceLoaction: provinceController.text,
-                districtLocation: districtController.text,
-                sectorLocation: sectorController.text,
-                cellLocation: cellController.text,
-                villageLocation: villageController.text,
+                provinceLoaction: selectedProvince!,
+                districtLocation: selectedDistrict!,
+                sectorLocation: selectedSector!,
+                cellLocation: selectedCell!,
+                villageLocation: selectedVillage!,
                 timestamp: timestamp,
-                //  location: location,
               );
 
               // Save the cooperative data to Firestore
@@ -440,15 +618,11 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
                 // Reset the text controllers
                 nameController.clear();
                 descriptionController.clear();
-                provinceController.clear();
-                districtController.clear();
-                sectorController.clear();
-                cellController.clear();
-                villageController.clear();
 
                 // Hide the form
                 setState(() {
                   _showNewCooperativeForm = false;
+                  _errorMessage = '';
                 });
 
                 // Optionally, show a success message or navigate to a new screen
@@ -466,40 +640,5 @@ class _SeniorDashboardState extends State<SeniorDashboard> {
         ],
       ),
     );
-  }
-
-  void _handleUpdate(String cooperativeName) async {
-    try {
-      QuerySnapshot querySnapshot = await _firestore
-          .collection('Umutima-Ikimina')
-          .where('name', isEqualTo: cooperativeName)
-          .limit(1)
-          .get();
-
-      if (querySnapshot.docs.isNotEmpty) {
-        String registrationId = querySnapshot.docs.first['registrationId'];
-        String name = querySnapshot.docs.first['name'];
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => UpdatePage(
-              registrationId: registrationId,
-              name: name,
-              cellLocation: '',
-              description: '',
-              districtLocation: '',
-              sectorLocation: '',
-              villageLocation: '',
-              provinceLocation: '',
-            ),
-          ),
-        );
-      } else {
-        print('No matching document found for $cooperativeName');
-      }
-    } catch (error) {
-      print('Error retrieving registrationId: $error');
-    }
   }
 }
